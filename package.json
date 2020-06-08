@@ -1,0 +1,19 @@
+{
+  "name": "memehub-limits",
+  "version": "1.0.0",
+  "description": "A Service that allows to set limits on how much a user may post",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "leifb",
+  "license": "ISC",
+  "dependencies": {
+    "cron": "^1.8.2",
+    "docker-names": "^1.1.1",
+    "js-yaml": "^3.14.0",
+    "redis-request-broker": "^1.11.1",
+    "telegraf": "^3.38.0"
+  }
+}

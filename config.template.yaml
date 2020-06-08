@@ -1,0 +1,23 @@
+rrb:
+  queueMayPost: limits:may # The queue for the bot to decide weather a user may post now
+  queueGetQuota: limits:quota # The queue for others to see the current quota of a user
+  channelVote: events:vote # The channel on which vote events are send
+  channelRetractVote: events:retract-vote # The channel on which retract vote events are send
+  channelPost: events:post # The channel on which post events are send
+  channelLogging: logging:log # The channel on which to publish logs
+  redis:
+    prefix: "mh:"
+    port: 6379
+
+limits:
+  time:
+    quota: 2 # The amount of posts a user may do in a given time
+    cron: 0 05 * * * # The cron time on which to reset the time quota 
+  vote:
+    quota: 1 # The amount of extra posts a user gets from votes
+    threshold: 10 # The amount of votes a meme needs to grant an extra posts
+    applicableVotes: # The vote types that qualifay a meme for extra posts
+      - like
+      - weeb
+
+botToken: blablabla
