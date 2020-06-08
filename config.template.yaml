@@ -20,4 +20,4 @@ limits:
       - like
       - weeb
 
-botToken: blablabla
+botToken: your bot token
