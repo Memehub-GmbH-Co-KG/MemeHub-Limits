@@ -6,7 +6,7 @@ rrb:
   channelPost: events:post # The channel on which post events are send
   channelLogging: logging:log # The channel on which to publish logs
   redis:
-    prefix: "mh:"
+    prefix: "mh:test:"
     port: 6379
     host: 127.0.0.1
 
