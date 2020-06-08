@@ -5,7 +5,7 @@ Allows to limit how much users may post in the MemeHub
 
  - You will need a redis running
  - copy `config.template.yaml` to `config.yaml`
- - configure, in paticular `botToken` and rrb.redis should be set
+ - configure, in paticular `botToken` and `rb.redis` should be set
  - run `npm i`
  
 # Starting
