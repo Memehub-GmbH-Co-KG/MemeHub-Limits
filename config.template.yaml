@@ -8,11 +8,12 @@ rrb:
   redis:
     prefix: "mh:"
     port: 6379
+    host: 127.0.0.1
 
 limits:
   time:
     quota: 2 # The amount of posts a user may do in a given time
-    cron: 0 05 * * * # The cron time on which to reset the time quota 
+    cron: '0 05 * * *' # The cron time on which to reset the time quota 
   vote:
     quota: 1 # The amount of extra posts a user gets from votes
     threshold: 10 # The amount of votes a meme needs to grant an extra posts
