@@ -1,11 +1,11 @@
-const { Subscriber, Worker } = require('redis-request-broker');
+const { Subscriber, Worker, Client } = require('redis-request-broker');
 const { Telegraf } = require('telegraf');
 const cron = require('cron');
 
 const { log } = require('./log');
 
 module.exports.build = async function (config) {
-    const telegraf = new Telegraf(config.botToken);
+    const telegraf = new Telegraf(await requestBotToken(config.rrb.queueGetBotToken));
     const quotas = {};
 
     // Start rrb stuff
@@ -177,6 +177,20 @@ module.exports.build = async function (config) {
             return `one ${type} token`;
 
         return `${amount} ${type} tokens`;
+    }
+
+    async function requestBotToken(queue) {
+        const client = new Client(queue);
+        try {
+            await client.connect();
+            return await client.request();
+        }
+        catch (error) {
+            throw new Error(`Failed to get bot token: ${error.message}`);
+        }
+        finally {
+            await client.disconnect();
+        }
     }
 
     return {
