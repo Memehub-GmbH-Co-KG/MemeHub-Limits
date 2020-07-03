@@ -1,24 +1,37 @@
 rrb:
-  queueMayPost: limits:may # The queue for the bot to decide weather a user may post now
+  queueMayPost: limits:may-post # The queue for the bot to decide weather a user may post now
+  queueMayVote: limits:may-vote # The queue for the bot to decide weather a user may vote on a meme now
   queueGetQuota: limits:quota # The queue for others to see the current quota of a user
+  queueGetBotToken: bot-token # The queue to get the current bot token
+  queueIssueTokens: tokens:issue # The queue to get the current bot token
   channelVote: events:vote # The channel on which vote events are send
   channelRetractVote: events:retract-vote # The channel on which retract vote events are send
   channelPost: events:post # The channel on which post events are send
   channelLogging: logging:log # The channel on which to publish logs
-  redis:
-    prefix: "mh:test:"
-    port: 6379
-    host: 127.0.0.1
+
+redis: # The redis config to use
+  prefix: "mh:test:"
+  port: 6379
+  host: 127.0.0.1
+
+keys: # Redis keys to store the state in
+  posts: "limits:state:posts" # Stores how many posts a user has issued (since last reset). ":<user_id>" will be added. 
+  votes: "limits:state:vote" # Stores how often a user has voted on a meme. ":<user_id>:<meme_id>" will be added.
+  tokens: "tokens:state:tokens" # Stores how many meme tokens a user has. ":<user_id>" will be added.
 
 limits:
-  time:
-    quota: 2 # The amount of posts a user may do in a given time
-    cron: '0 05 * * *' # The cron time on which to reset the time quota 
-  vote:
-    quota: 1 # The amount of extra posts a user gets from votes
-    threshold: 10 # The amount of votes a meme needs to grant an extra posts
-    applicableVotes: # The vote types that qualifay a meme for extra posts
-      - like
-      - weeb
-
-botToken: your bot token
+  post: # Limits how much a user may post
+    time: # Allows users to post a certian amount of memes in a defined timeframe
+      quota: 2 # The amount of posts a user may do in a given time
+      cron: '0 05 * * *' # The cron time on which to reset the time quota 
+    tokens: # Allows users to post using tokens
+      gain: 1 # The amount of reward token a user gets from votes
+      cost: 1 # The amount of tokens a user needs to post
+      threshold: 10 # The amount of votes a meme needs to grant tokens
+      applicableVotes: # The vote types that qualify a meme for tokens
+        - like
+        - weeb
+  vote: # Limits how often a user may vote on a meme in a defined timespan
+    cooldown: 2000 # The time it takes for the limit to reset after a vote has been issued (in ms).
+    ban: 300_000 # The time it takes for the limit to reset after to many votes have been issued (in ms).
+    votes: 4 # The amount of vote requests (includes retracting votes) that are okay.
