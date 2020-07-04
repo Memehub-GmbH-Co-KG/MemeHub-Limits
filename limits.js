@@ -40,10 +40,7 @@ module.exports.build = async function (config) {
      */
     async function mayPost(data) {
         // 1st: Check free posts
-        const postsInTimeframe = await redis.get(`${config.keys.posts}:${data.user_id}`);
-        const freePosts = config.limits.post.time.quota - parseInt(postsInTimeframe);
-
-        if (freePosts > 0)
+        if ((await getFreePosts(data.user_id))  > 0)
             return true;
 
         // 2nd: Check meme tokens
@@ -68,8 +65,7 @@ module.exports.build = async function (config) {
      * @param {object} data An object containing the property user_id.
      */
     async function getQuota(data) {
-        const postsInTimeframe = await redis.get(`${config.keys.posts}:${data.user_id}`);
-        const freePosts = config.limits.post.time.quota - (parseInt(postsInTimeframe) || 0);
+        const freePosts = await getFreePosts(data.user_id);
         const memeTokens = await getTokens(data.user_id);
 
         return {
@@ -148,14 +144,15 @@ module.exports.build = async function (config) {
      */
     async function onPost(data) {
         // Send the handlePost script to redis
-        const [postsInTimeframe, rewardTokens] = await scripts.handlePost(
+        const [postsInTimeframe, tokens] = await scripts.handlePost(
             2, `${config.keys.posts}:${data.poster_id}`, `${config.keys.tokens}:${data.poster_id}`,
             cronTime.sendAt().unix(), config.limits.post.time.quota, config.limits.post.tokens.cost);
 
         const freePosts = config.limits.post.time.quota - postsInTimeframe;
+        const tokensParsed = parseInt(tokens);
 
         // Inform the user about the new state
-        const text = `You have ${quotaToStrnig(freePosts, 'free post')} and ${quotaToStrnig(rewardTokens, 'meme token')} left.`;
+        const text = `You have ${quotaToStrnig(freePosts, 'free post')} and ${quotaToStrnig(tokensParsed, 'meme token')} left.`;
         await telegraf.telegram.sendMessage(data.poster_id, text);
     }
 
@@ -194,6 +191,12 @@ module.exports.build = async function (config) {
     async function getTokens(user_id) {
         const tokens = await redis.get(`${config.keys.tokens}:${user_id}`);
         return parseInt(tokens) || 0;
+    }
+
+    async function getFreePosts(user_id) {
+        const postsInTimeframe = await redis.get(`${config.keys.posts}:${user_id}`);
+        const freePosts = config.limits.post.time.quota - (parseInt(postsInTimeframe) || 0);
+        return freePosts;
     }
 
     /**
