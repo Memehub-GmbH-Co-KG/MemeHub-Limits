@@ -149,7 +149,7 @@ module.exports.build = async function (config) {
             cronTime.sendAt().unix(), config.limits.post.time.quota, config.limits.post.tokens.cost);
 
         const freePosts = config.limits.post.time.quota - postsInTimeframe;
-        const tokensParsed = parseInt(tokens);
+        const tokensParsed = parseInt(tokens) || 0;
 
         // Inform the user about the new state
         const text = `You have ${quotaToStrnig(freePosts, 'free post')} and ${quotaToStrnig(tokensParsed, 'meme token')} left.`;
