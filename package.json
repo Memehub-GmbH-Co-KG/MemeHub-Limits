@@ -14,7 +14,6 @@
     "cron": "^1.8.2",
     "docker-names": "^1.1.1",
     "handy-redis": "^1.8.3",
-    "js-yaml": "^3.14.0",
     "redis-request-broker": "^1.11.1",
     "sha1": "^1.1.1",
     "telegraf": "^3.38.0"
