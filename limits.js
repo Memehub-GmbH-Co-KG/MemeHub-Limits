@@ -7,25 +7,27 @@ const lua = require('./lua');
 const { log } = require('./log');
 
 module.exports.build = async function (config) {
-    const telegraf = new Telegraf(await requestBotToken(config.rrb.queueGetBotToken));
-    const redis = createHandyClient(config.redis);
+    const telegraf = new Telegraf(config.telegram.bot_token);
+    const redis = createHandyClient(config.redis.connection);
     const scripts = lua.loadAll(redis);
 
     // Start rrb stuff
-    const workerMayPost = new Worker(config.rrb.queueMayPost, mayPost);
-    const workerMayVote = new Worker(config.rrb.queueMayVote, mayVote);
-    const workerGetQuota = new Worker(config.rrb.queueGetQuota, getQuota);
-    const workerIssueTokens = new Worker(config.rrb.queueIssueTokens, issueTokens);
-    const subscriberVote = new Subscriber(config.rrb.channelVote, onVote);
-    const subscriberRetractVote = new Subscriber(config.rrb.channelRetractVote, onRetractVote);
-    const subscriberPost = new Subscriber(config.rrb.channelPost, onPost);
-    await workerMayPost.listen();
-    await workerMayVote.listen();
-    await workerGetQuota.listen();
-    await workerIssueTokens.listen();
-    await subscriberVote.listen();
-    await subscriberRetractVote.listen();
-    await subscriberPost.listen();
+    const workerMayPost = new Worker(config.rrb.channels.limits.mayPost, mayPost);
+    const workerMayVote = new Worker(config.rrb.channels.limits.mayVote, mayVote);
+    const workerGetQuota = new Worker(config.rrb.channels.limits.getQuota, getQuota);
+    const workerIssueTokens = new Worker(config.rrb.channels.token.issue, issueTokens);
+    const subscriberVote = new Subscriber(config.rrb.channels.vote.issued, onVote);
+    const subscriberRetractVote = new Subscriber(config.rrb.channels.vote.retracted, onRetractVote);
+    const subscriberPost = new Subscriber(config.rrb.channels.meme.posted, onPost);
+    await Promise.all([
+        workerMayPost.listen(),
+        workerMayVote.listen(),
+        workerGetQuota.listen(),
+        workerIssueTokens.listen(),
+        subscriberVote.listen(),
+        subscriberRetractVote.listen(),
+        subscriberPost.listen()
+    ]);
 
     // Start cron job
     const cronTime = cron.time(config.limits.post.time.cron);
@@ -40,7 +42,7 @@ module.exports.build = async function (config) {
      */
     async function mayPost(data) {
         // 1st: Check free posts
-        if ((await getFreePosts(data.user_id))  > 0)
+        if ((await getFreePosts(data.user_id)) > 0)
             return true;
 
         // 2nd: Check meme tokens
@@ -56,7 +58,7 @@ module.exports.build = async function (config) {
      *   meme_id: The id of the meme on which the user wants to vote
      */
     async function mayVote(data) {
-        const votesOnMeme = await redis.get(`${config.keys.votes}:${data.user_id}:${data.meme_id}`);
+        const votesOnMeme = await redis.get(`${config.redis.keys.votes}:${data.user_id}:${data.meme_id}`);
         return (parseInt(votesOnMeme) || 0) <= config.limits.vote.votes;
     }
 
@@ -145,7 +147,7 @@ module.exports.build = async function (config) {
     async function onPost(data) {
         // Send the handlePost script to redis
         const [postsInTimeframe, tokens] = await scripts.handlePost(
-            2, `${config.keys.posts}:${data.poster_id}`, `${config.keys.tokens}:${data.poster_id}`,
+            2, `${config.redis.keys.posts}:${data.poster_id}`, `${config.redis.keys.tokens}:${data.poster_id}`,
             cronTime.sendAt().unix(), config.limits.post.time.quota, config.limits.post.tokens.cost);
 
         const freePosts = config.limits.post.time.quota - postsInTimeframe;
@@ -162,7 +164,7 @@ module.exports.build = async function (config) {
      * @param {string} meme_id The meme that has been voted on.
      */
     async function handleVote(user_id, meme_id) {
-        await scripts.handleVote(1, `${config.keys.votes}:${user_id}:${meme_id}`,
+        await scripts.handleVote(1, `${config.redis.keys.votes}:${user_id}:${meme_id}`,
             config.limits.vote.votes, config.limits.vote.cooldown, config.limits.vote.ban);
     }
 
@@ -172,7 +174,7 @@ module.exports.build = async function (config) {
      */
     async function increaseTokens(user_id, amount = 1, notify = false) {
         log('info', `increasing reward quota for user ${user_id} by ${amount}`);
-        const newAmount = await redis.incrby(`${config.keys.tokens}:${user_id}`, amount);
+        const newAmount = await redis.incrby(`${config.redis.keys.tokens}:${user_id}`, amount);
 
         if (!notify)
             return newAmount;
@@ -189,12 +191,12 @@ module.exports.build = async function (config) {
      * @param {stirng} user_id The user in question
      */
     async function getTokens(user_id) {
-        const tokens = await redis.get(`${config.keys.tokens}:${user_id}`);
+        const tokens = await redis.get(`${config.redis.keys.tokens}:${user_id}`);
         return parseInt(tokens) || 0;
     }
 
     async function getFreePosts(user_id) {
-        const postsInTimeframe = await redis.get(`${config.keys.posts}:${user_id}`);
+        const postsInTimeframe = await redis.get(`${config.redis.keys.posts}:${user_id}`);
         const freePosts = config.limits.post.time.quota - (parseInt(postsInTimeframe) || 0);
         return freePosts;
     }
@@ -220,7 +222,7 @@ module.exports.build = async function (config) {
      */
     async function decreaseTokens(user_id, amount = 1, notify = false) {
         log('info', `decreasing reward quota for user ${user_id} by ${amount}`);
-        const newAmount = await redis.decrby(`${config.keys.tokens}:${user_id}`, amount);
+        const newAmount = await redis.decrby(`${config.redis.keys.tokens}:${user_id}`, amount);
 
         if (notify)
             await telegraf.telegram.sendMessage(user_id, `Your meme tokens have been decreased by ${amount}`);
@@ -236,20 +238,6 @@ module.exports.build = async function (config) {
             return `one ${type}`;
 
         return `${amount} ${type}s`;
-    }
-
-    async function requestBotToken(queue) {
-        const client = new Client(queue);
-        try {
-            await client.connect();
-            return await client.request();
-        }
-        catch (error) {
-            throw new Error(`Failed to get bot token: ${error.message}`);
-        }
-        finally {
-            await client.disconnect();
-        }
     }
 
     return {

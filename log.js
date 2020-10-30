@@ -3,7 +3,7 @@ const i = require('./instance');
 let client;
 
 async function start(config) {
-    const c = new Publisher(config.rrb.channelLogging);
+    const c = new Publisher(config.rrb.channels.logging.log);
     await c.connect();
     client = c;
 }
