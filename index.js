@@ -14,8 +14,11 @@ async function start() {
     // Set rrb defaults
     Defaults.setDefaults({
         redis: {
-            prefix: 'mh:',
-            host: "mhredis"
+            prefix: process.env.REDIS_PREFIX || 'mh:',
+            host: process.env.REDIS_HOST || "mhredis",
+            port: process.env.REDIS_PORT || undefined,
+            db: process.env.REDIS_DB || undefined,
+            password: process.env.REDIS_PASSWORD || undefined
         }
     });
 
