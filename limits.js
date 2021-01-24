@@ -82,11 +82,11 @@ module.exports.build = async function (config) {
      * is exactly the limit specified. Self votes are ignored.
      */
     async function onVote(data) {
-        handleVote(data.user_id, data.meme_id);
+        handleVote(data.user_id, data.meme.id);
 
         // If this vote has been issued by the poster itself, ignore it.
         // This is not the same as checking data.self_vote
-        if (data.poster_id === data.user_id)
+        if (data.meme.poster_id === data.user_id)
             return;
 
         // We don't count self votes here
@@ -102,7 +102,7 @@ module.exports.build = async function (config) {
             return;
 
         // At this point we know that we have to give the user a reward
-        await increaseTokens(data.poster_id, config.limits.post.tokens.gain, true);
+        await increaseTokens(data.meme.poster_id, config.limits.post.tokens.gain, true, data.meme.private_message_id);
     }
 
     /**
@@ -112,11 +112,11 @@ module.exports.build = async function (config) {
      * @param {*} data 
      */
     async function onRetractVote(data) {
-        handleVote(data.user_id, data.meme_id);
+        handleVote(data.user_id, data.meme.id);
 
         // If this vote has been issued by the poster itself, ignore it.
         // This is not the same as checking data.self_vote
-        if (data.poster_id === data.user_id)
+        if (data.meme.poster_id === data.user_id)
             return;
 
         // We don't count self votes here
@@ -132,7 +132,7 @@ module.exports.build = async function (config) {
             return;
 
         // At this point we know that we have to reduce the quota
-        await decreaseTokens(data.poster_id, config.limits.post.tokens.gain, true);
+        await decreaseTokens(data.meme.poster_id, config.limits.post.tokens.gain, true, data.meme.private_message_id);
     }
 
     /**
@@ -169,20 +169,27 @@ module.exports.build = async function (config) {
     }
 
     /**
-     * Increased the users reward quota by one and notifies the user about that.
-     * @param {*} user_id 
+     * Increases the users reward tokens and notifies the user about that.
+     * @param {string} user_id The id of the user to get tokens
+     * @param {number} amount The amount of tokens
+     * @param {boolean} notify Whether to notify the user. Defaults to false.
+     * @param {string} reply_to Put a message id here to send the notification as a reply. 
      */
-    async function increaseTokens(user_id, amount = 1, notify = false) {
+    async function increaseTokens(user_id, amount = 1, notify = false, reply_to = null) {
         log('info', `increasing reward quota for user ${user_id} by ${amount}`);
         const newAmount = await redis.incrby(`${config.redis.keys.tokens}:${user_id}`, amount);
 
         if (!notify)
             return newAmount;
 
+        const extra = reply_to
+            ? { reply_to_message_id: reply_to }
+            : {};
+
         if (amount === 1)
-            await telegraf.telegram.sendMessage(user_id, 'You got a reward token!');
+            await telegraf.telegram.sendMessage(user_id, 'You got a reward token!', extra);
         else
-            await telegraf.telegram.sendMessage(user_id, `You got ${amount} reward tokens!`);
+            await telegraf.telegram.sendMessage(user_id, `You got ${amount} reward tokens!`, extra);
         return newAmount;
     }
 
@@ -217,15 +224,22 @@ module.exports.build = async function (config) {
 
 
     /**
-     * Reduces the users reward quota by one and notifies the user about that.
-     * @param {*} user_id 
+     * Reduces the users tokens and notifies the user about that.
+     * @param {string} user_id The id of the user
+     * @param {number} The amount of tokens
+     * @param {boolean} notify Whether to notify the user
+     * @param {string} reply_to Put a message id here to send the notification as a reply.  
      */
-    async function decreaseTokens(user_id, amount = 1, notify = false) {
+    async function decreaseTokens(user_id, amount = 1, notify = false, reply_to = null) {
         log('info', `decreasing reward quota for user ${user_id} by ${amount}`);
         const newAmount = await redis.decrby(`${config.redis.keys.tokens}:${user_id}`, amount);
 
+        const extra = reply_to
+            ? { reply_to_message_id: reply_to }
+            : {};
+
         if (notify)
-            await telegraf.telegram.sendMessage(user_id, `Your meme tokens have been decreased by ${amount}`);
+            await telegraf.telegram.sendMessage(user_id, `Your meme tokens have been decreased by ${amount}`, extra);
 
         return newAmount;
     }
